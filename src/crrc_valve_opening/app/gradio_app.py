@@ -36,10 +36,10 @@ def load_predicted_data(file_path: str) -> tuple[pl.DataFrame | None, str]:
     """
     try:
         df = pl.read_csv(file_path, infer_schema_length=10000)
-        status_info = f"✅ 预测数据加载成功! 共 {len(df)} 行, {len(df.columns)} 列"
+        status_info = f"✅ 预测成功! 共 {len(df)} 行, {len(df.columns)} 列"
         return df, status_info
     except Exception as e:
-        return None, f"❌ 预测数据加载失败: {str(e)}"
+        return None, f"❌ 预测失败: {str(e)}"
 
 
 def create_original_plots(df: pl.DataFrame):
@@ -198,16 +198,16 @@ def create_plot(df: pl.DataFrame):
     return fig
 
 
-def process_data(file_input, preview_rows: int):
+def load_original_data(file_input, preview_rows: int):
     """
-    处理数据的主函数:加载、预测、可视化
+    加载原始数据并显示预览和曲线图
 
     Args:
         file_input: 上传的文件对象或None(使用默认数据)
         preview_rows: 预览的行数
 
     Returns:
-        (状态信息, 原始数据预览表格, 海拔曲线图, 坡度曲线图, 速度曲线图, 预测结果表格, 预测曲线图)
+        (状态信息, 原始数据预览表格, 海拔曲线图, 坡度曲线图, 速度曲线图, DataFrame对象)
     """
     # 确定数据文件路径
     data_dir = Path(__file__).parent.parent.parent.parent / "data"
@@ -219,32 +219,54 @@ def process_data(file_input, preview_rows: int):
         # 使用默认原始数据文件 (step1.csv)
         original_file_path = str(data_dir / "step1.csv")
 
-    # 预测数据文件路径 (step2.csv)
-    predicted_file_path = str(data_dir / "step2.csv")
-
     # 1. 加载原始数据
     df_original, preview_df, status_info = load_data(original_file_path, preview_rows)
 
     if df_original is None or preview_df is None:
-        return status_info, None, None, None, None, None, None
+        return status_info, None, None, None, None, None
 
     # 2. 创建原始数据的曲线图
     plot_altitude, plot_slope, plot_speed = create_original_plots(df_original)
 
-    # 3. 加载预测数据
+    # 3. 转换为 pandas DataFrame 用于 Gradio 显示
+    preview_table = preview_df.to_pandas()
+
+    return status_info, preview_table, plot_altitude, plot_slope, plot_speed, df_original
+
+
+def process_prediction(df_original):
+    """
+    处理预测逻辑
+
+    Args:
+        df_original: 原始数据的 DataFrame
+
+    Returns:
+        (状态信息, 预测结果表格, 预测曲线图)
+    """
+    # 确定数据文件路径
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    
+    # 预测数据文件路径 (step2.csv)
+    predicted_file_path = str(data_dir / "step2.csv")
+
+    # 检查是否已加载原始数据
+    if df_original is None:
+        return "❌ 请先加载数据!", None, None
+
+    # 1. 加载预测数据
     df_predicted, pred_status = load_predicted_data(predicted_file_path)
     
     if df_predicted is None:
-        return status_info + "\n" + pred_status, preview_df.to_pandas(), plot_altitude, plot_slope, plot_speed, None, None
+        return pred_status, None, None
 
-    # 4. 创建预测结果可视化图表
+    # 2. 创建预测结果可视化图表
     plot = create_plot(df_predicted)
 
-    # 5. 转换为 pandas DataFrame 用于 Gradio 显示
-    preview_table = preview_df.to_pandas()
+    # 3. 转换为 pandas DataFrame 用于 Gradio 显示
     predicted_table = df_predicted.to_pandas()
 
-    return status_info + "\n" + pred_status, preview_table, plot_altitude, plot_slope, plot_speed, predicted_table, plot
+    return pred_status, predicted_table, plot
 
 
 def create_interface():
@@ -255,42 +277,61 @@ def create_interface():
         gr.Markdown("# 📊 阀门开度预测系统")
         gr.Markdown("阀门开度数据预测与可视化平台")
 
+        # 使用 State 来保存加载的 DataFrame
+        df_state = gr.State(value=None)
+
+        # ==================== 第一部分：数据加载与预览 ====================
+        gr.Markdown("---")
+        gr.Markdown("## 📂 第一部分：数据加载与预览")
+        
+        # 数据上传区
+        gr.Markdown("### 1️⃣ 数据上传")
         with gr.Row():
             with gr.Column(scale=1):
-                # 数据上传区
-                gr.Markdown("## 1️⃣ 数据上传")
                 file_upload = gr.File(
                     label="上传CSV文件 (可选)", file_types=[".csv"], type="filepath", file_count="single"
                 )
                 gr.Markdown("💡 **提示**: 如果不上传文件,将使用默认数据 (data/step1.csv)")
 
+            with gr.Column(scale=1):
                 # 数据预览设置
-                gr.Markdown("## 2️⃣ 数据预览设置")
                 preview_rows_slider = gr.Slider(
                     minimum=5, maximum=50, value=10, step=1, label="预览行数", info="选择要预览的数据行数"
                 )
 
-                # 处理按钮区
-                gr.Markdown("## 3️⃣ 执行预测")
-                process_btn = gr.Button("🚀 开始预测", variant="primary", size="lg")
+                # 加载数据按钮
+                load_btn = gr.Button("📥 加载数据", variant="secondary", size="lg")
 
-                # 状态信息
-                status_info = gr.Textbox(label="状态信息", lines=2, interactive=False)
+        # 加载状态信息
+        load_status_info = gr.Textbox(label="加载状态信息", lines=2, interactive=False)
 
         # 原始数据预览区
-        gr.Markdown("## 4️⃣ 原始数据预览")
+        gr.Markdown("### 2️⃣ 原始数据预览")
         with gr.Row():
             data_preview = gr.Dataframe(label="原始数据预览 (前N行)", interactive=False, wrap=True)
 
         # 原始数据曲线图
-        gr.Markdown("### 原始数据曲线图")
+        gr.Markdown("### 3️⃣ 原始数据曲线图")
         with gr.Row():
             plot_x1 = gr.Plot(label="海拔(m) 随时间变化")
             plot_x2 = gr.Plot(label="坡度(‰) 随时间变化")
             plot_x3 = gr.Plot(label="速度v（km/h） 随时间变化")
 
+        # ==================== 第二部分：预测 ====================
+        gr.Markdown("---")
+        gr.Markdown("## 🔮 第二部分：预测")
+        
+        # 预测按钮区
+        gr.Markdown("### 1️⃣ 执行预测")
+        with gr.Row():
+            with gr.Column(scale=1):
+                predict_btn = gr.Button("🚀 开始预测", variant="primary", size="lg")
+
+        # 预测状态信息
+        predict_status_info = gr.Textbox(label="预测状态信息", lines=2, interactive=False)
+
         # 预测结果展示区
-        gr.Markdown("## 5️⃣ 预测结果展示")
+        gr.Markdown("### 2️⃣ 预测结果展示")
 
         with gr.Row():
             # 预测结果表格
@@ -300,11 +341,18 @@ def create_interface():
             # 预测曲线图
             result_plot = gr.Plot(label="预测趋势图")
 
-        # 绑定事件
-        process_btn.click(
-            fn=process_data,
+        # 绑定加载数据事件
+        load_btn.click(
+            fn=load_original_data,
             inputs=[file_upload, preview_rows_slider],
-            outputs=[status_info, data_preview, plot_x1, plot_x2, plot_x3, result_table, result_plot],
+            outputs=[load_status_info, data_preview, plot_x1, plot_x2, plot_x3, df_state],
+        )
+
+        # 绑定预测事件
+        predict_btn.click(
+            fn=process_prediction,
+            inputs=[df_state],
+            outputs=[predict_status_info, result_table, result_plot],
         )
 
     return demo
