@@ -1,0 +1,39 @@
+[project]
+name = "crrc_valve_opening"
+version = "0.1.0"
+description = "A simple Python project template"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+authors = [{ name = "sqjian", email = "shengqi.jian@gmail.com" }]
+dependencies = [
+    "jupyter>=1.1.1,<2.0.0",
+    "gradio>=5.0.0,<6.0.0",
+    "polars>=1.0.0,<2.0.0",
+    "plotly>=6.5.0",
+    "pyarrow>=22.0.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.4.2", "ruff>=0.14.2"]
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+disable_test_id_escaping_and_forfeit_all_rights_to_community_support = true
+addopts = [
+    "-vv",
+    "--capture=no",
+    "--tb=short",
+    "-W ignore::DeprecationWarning",
+    "-W error::UserWarning",
+    "--durations=0",
+    "--setup-show",
+    "--exitfirst",
+    "-m not skip",
+]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120

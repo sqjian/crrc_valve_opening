@@ -1,0 +1,33 @@
+{
+    "files.watcherExclude": {
+        "**/.venv": true,
+        "**/.conda": true,
+        "**/models": true,
+        "**/__pycache__": true,
+        "**/.pytest_cache": true
+    },
+    "terminal.integrated.env.linux": {
+        "HTTP_PROXY": "http://127.0.0.1:7890",
+        "HTTPS_PROXY": "http://127.0.0.1:7890",
+        "ALL_PROXY": "socks5://127.0.0.1:7890",
+        "NO_PROXY": "localhost,127.0.0.1,artifacts.iflytek.com",
+        "PYTHONPATH": "${workspaceFolder}",
+        "RCLONE_CONFIG": "${workspaceFolder}/config/rclone.conf"
+    },
+    "files.exclude": {
+        "**/.pytest_cache": true,
+        "**/__pycache__": true
+    },
+    "python.analysis.exclude": [
+        "**/models",
+        "**/__pycache__",
+    ],
+    "jupyter.debugJustMyCode": false,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.testing.pytestArgs": [
+        "src"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.languageServer": "None"
+}
